@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Учебный портал</title>
+    <link rel="stylesheet" href="./css/style.css">
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.7.1/firebase-app.js";
+        import { getAuth, createUserWithEmailAndPassword, onAuthStateChanged, signOut, signInWithEmailAndPassword } from 'https://www.gstatic.com/firebasejs/11.7.1/firebase-auth.js';
+        import {firebaseConfig} from "./auth.js";
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app)
+
+        const createUser = document.getElementById('reg')
+        const outBtn = document.getElementById('outBtn')
+        const profile = document.getElementById('profile')
+        const modal = document.getElementById('modal')
+        const signUser = document.getElementById('sign')
+        const timesBtn = document.getElementById('times')
+
+        signUser.addEventListener('submit', function(event){
+        event.preventDefault()
+        const email = document.getElementById('sign-email').value
+        const password = document.getElementById('sign-password').value
+
+        signInWithEmailAndPassword(auth, email, password)
+        .then((userCredential)=>{
+        })
+        .catch((error) => {
+            const errorCode = error.code
+            const errorMessage = error.message
+            console.error(errorCode, errorMessage)
+        });
+        })
+
+
+        createUser.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const email = document.getElementById('email').value;
+        const password = document.getElementById('password').value;
+
+        try {
+            const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+        } catch (error) {
+            const errorCode = error.code;
+            const errorMessage = error.message;
+            console.error('Ошибка при регистрации:', errorCode, errorMessage);
+        }
+
+        outBtn.addEventListener('click', () => {
+        signOut(auth)
+            .then(() => {
+            console.log('Вы вышли')
+            }).catch((error) => {
+
+            });
+        });
+
+        onAuthStateChanged(auth, (user) => {
+        if (user) {
+            profile.style.display = 'flex'
+            modal.style.display = 'none'
+            timesBtn.style.display = 'block'
+        } else {
+            profile.style.display = 'none'
+            modal.style.display = 'flex'
+            timesBtn.style.display = 'none'
+        }
+        });
+        });
+    </script>
+        
+</head>
+<body>
+    <header>
+        <div class="logo">FStudies</div>
+        <div class="button">
+            <button id="open-modal" type="button"><img src="./assets/profile-icon.jpg" alt=""></button>
+        </div>
+        <dialog id="dialog">
+            <button type="button" id="times" style="display: none;">&times;</button>
+            <div id="modal" class="modal" style="display: flex;">
+            <form action="" id="reg" class="reg">
+                <input type="email" id="email" name="email" class="email">
+                <input type="password" id="password" name="password" class="password">
+                <button type="submit" id="reg-btn">Регистрация</button>
+            </form>
+            <hr class="hr">
+            <form action="" id="sign" class="sign">
+            <input type="email" id="sign-email" name="sign-email" class="sign-email">
+            <input type="password" id="sign-password" name="sign-password" class="sign-password">
+            <button type="submit" id="sign-btn">Войти</button>
+            </form>
+            </div>
+            <div id="profile" style="display: none;">
+            <p>Добро пожаловать!</p>
+            <button type="button" id="outBtn">Выйти</button>
+            </div>
+        </dialog>
+    </header>
+        <script src="./scripts.js"></script>
+        <script type="module" src="./auth.js"></script>
+</body>
+</html>
