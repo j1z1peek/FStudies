@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FStudies</title>
+    <link rel="stylesheet" href="./css/style.css">
+    <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.7.1/firebase-app.js";
+    import { getAuth, createUserWithEmailAndPassword, onAuthStateChanged, signOut, signInWithEmailAndPassword } from 'https://www.gstatic.com/firebasejs/11.7.1/firebase-auth.js';
+    import { getFirestore, collection, doc, setDoc, getDoc, updateDoc } from 'https://www.gstatic.com/firebasejs/11.7.1/firebase-firestore.js'
+    import {firebaseConfig} from "./auth.js";
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+
+    const createUser = document.getElementById('reg');
+    const outBtn = document.getElementById('outBtn');
+    const profile = document.getElementById('profile');
+    const modal = document.getElementById('modal');
+    const signUser = document.getElementById('sign');
+    const timesBtn = document.getElementById('times');
+    const openModalBtn = document.getElementById('open-modal');
+    const dialog = document.getElementById('dialog');
+    const userEmailElement = document.getElementById('user-email');
+    const testResultsContainer = document.getElementById('test-results');
+
+    const openHtmlTestBtn = document.getElementById('open-html-test');
+    const htmlTestDialog = document.getElementById('html-test-dialog');
+    const closeHtmlTestBtn = document.getElementById('close-html-test');
+    const htmlTestForm = document.getElementById('html-test-form');
+    const testResult = document.getElementById('test-result');
+    const retryTestBtn = document.getElementById('retry-test');
+
+    const regError = document.createElement('div');
+    regError.className = 'error-message';
+    document.getElementById('reg').appendChild(regError);
+
+    const loginError = document.createElement('div');
+    loginError.className = 'error-message';
+    document.getElementById('sign').appendChild(loginError);
+
+    openModalBtn.addEventListener('click', () => {
+        dialog.showModal();
+        regError.textContent = '';
+        loginError.textContent = '';
+    });
+
+    timesBtn.addEventListener('click', () => {
+        dialog.close();
+    });
+
+    openHtmlTestBtn.addEventListener('click', () => {
+        openTestDialog();
+    });
+
+    retryTestBtn.addEventListener('click', () => {
+        openTestDialog();
+    });
+
+    function openTestDialog() {
+        htmlTestDialog.showModal();
+        testResult.style.display = 'none';
+        htmlTestForm.querySelectorAll('input[type="radio"]').forEach(radio => {
+            radio.checked = false;
+        });
+
+        document.querySelectorAll('.question').forEach(question => {
+            question.classList.remove('correct', 'incorrect');
+            question.querySelectorAll('.correct-answer, .user-answer').forEach(el => el.remove());
+        });
+
+    }
+
+    closeHtmlTestBtn.addEventListener('click', () => {
+        htmlTestDialog.close();
+    });
+
+    async function saveTestResult(userId, score, totalQuestions, percentage, answers) {
+        try {
+            const testRef = doc(db, 'users', userId, 'testResults', 'htmlTest');
+            const testDate = new Date().toISOString();
+
+            const resultData = {
+                score,
+                totalQuestions,
+                percentage,
+                answers,
+                lastAttempt: testDate
+            };
+
+            return resultData;
+        } catch (error) {
+            console.error('Ошибка при сохранении результата теста:', error);
+            return null;
+        }
+    }
+
+    async function loadTestResult(userId) {
+        try {
+            const testRef = doc(db, 'users', userId, 'testResults', 'htmlTest');
+            const docSnap = await getDoc(testRef);
+            
+            if (docSnap.exists()) {
+                return docSnap.data();
+            }
+            return null;
+        } catch (error) {
+            console.error('Ошибка при загрузке результатов:', error);
+            return null;
+        }
+    }
+
+    function displayTestResult(result) {
+        testResultsContainer.innerHTML = '';
+        
+        if (result) {
+            const resultElement = document.createElement('div');
+            resultElement.className = 'test-results-item';
+            resultElement.innerHTML = `
+                <h3>Результаты теста:</h3>
+                <p>Баллы: ${result.score} из ${result.totalQuestions}</p>
+                <p>Процент: ${result.percentage}%</p>
+                <p>Попыток: ${result.attempts}</p>
+                <p>Последняя попытка: ${new Date(result.lastAttempt).toLocaleString()}</p>
+            `;
+            testResultsContainer.appendChild(resultElement);
+        }
+    }
+
+
+    htmlTestForm.addEventListener('submit', async function(event) {
+        event.preventDefault();
+
+        const correctAnswers = {
+            q1: 'b',
+            q2: 'c',
+            q3: 'a',
+            q4: 'c',
+            q5: 'c'
+        };
+        
+        const answerTexts = {
+            q1: { a: '&lt;head&gt;', b: '&lt;h1&gt;', c: '&lt;header&gt;', d: '&lt;title&gt;' },
+            q2: { a: 'src', b: 'link', c: 'href', d: 'url' },
+            q3: { a: '&lt;img&gt;', b: '&lt;image&gt;', c: '&lt;picture&gt;', d: '&lt;src&gt;' },
+            q4: { a: '&lt;light&gt;', b: '&lt;i&gt;', c: '&lt;strong&gt;', d: '&lt;mark&gt;' },
+            q5: { a: '&lt;ol&gt;', b: '&lt;dl&gt;', c: '&lt;ul&gt;', d: '&lt;list&gt;' }
+        };
+        
+        let score = 0;
+        const totalQuestions = Object.keys(correctAnswers).length;
+        const userAnswers = {};
+
+        for (const question in correctAnswers) {
+            const selectedOption = htmlTestForm.querySelector(`input[name="${question}"]:checked`);
+            const questionDiv = selectedOption?.closest('.question');
+            
+            if (questionDiv) {
+                userAnswers[question] = selectedOption.value;
+
+                const correctAnswerDiv = document.createElement('div');
+                correctAnswerDiv.className = 'correct-answer';
+                correctAnswerDiv.innerHTML = `Правильный ответ: ${answerTexts[question][correctAnswers[question]]}`;
+                questionDiv.appendChild(correctAnswerDiv);
+
+                const userAnswerDiv = document.createElement('div');
+                userAnswerDiv.className = `user-answer ${selectedOption.value === correctAnswers[question] ? 'correct' : 'incorrect'}`;
+                userAnswerDiv.innerHTML = `Ваш ответ: ${answerTexts[question][selectedOption.value]}`;
+                questionDiv.appendChild(userAnswerDiv);
+                
+                if (selectedOption.value === correctAnswers[question]) {
+                    score++;
+                    questionDiv.classList.add('correct');
+                    questionDiv.classList.remove('incorrect');
+                } else {
+                    questionDiv.classList.add('incorrect');
+                    questionDiv.classList.remove('correct');
+                }
+            } else {
+                const questionDiv = htmlTestForm.querySelector(`input[name="${question}"]`).closest('.question');
+                const correctAnswerDiv = document.createElement('div');
+                correctAnswerDiv.className = 'correct-answer';
+                correctAnswerDiv.innerHTML = `Правильный ответ: ${answerTexts[question][correctAnswers[question]]}`;
+                questionDiv.appendChild(correctAnswerDiv);
+                
+                const userAnswerDiv = document.createElement('div');
+                userAnswerDiv.className = 'user-answer incorrect';
+                userAnswerDiv.innerHTML = 'Вы не ответили на этот вопрос';
+                questionDiv.appendChild(userAnswerDiv);
+                
+                questionDiv.classList.add('incorrect');
+            }
+        }
+
+        const percentage = Math.round((score / totalQuestions) * 100);
+        testResult.innerHTML = `
+            <h3>Ваш результат: ${score} из ${totalQuestions} (${percentage}%)</h3>
+            <p>${percentage >= 80 ? 'Отличный результат!' : percentage >= 50 ? 'Неплохо, но можно лучше!' : 'Попробуйте еще раз!'}</p>
+        `;
+        testResult.style.display = 'block';
+
+        const user = auth.currentUser;
+        if (user) {
+            const result = await saveTestResult(user.uid, score, totalQuestions, percentage, userAnswers);
+        } 
+
+        testResult.scrollIntoView({ behavior: 'smooth' });
+    });
+
+    signUser.addEventListener('submit', function(event) {
+        event.preventDefault();
+        loginError.textContent = '';
+        
+        const email = document.getElementById('sign-email').value;
+        const password = document.getElementById('sign-password').value;
+
+        signInWithEmailAndPassword(auth, email, password)
+            .then((userCredential) => {
+                dialog.close();
+            })
+            .catch((error) => {
+                loginError.textContent = getErrorMessage(error.code);
+                console.error(error.code, error.message);
+            });
+    });
+
+    createUser.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        regError.textContent = '';
+        
+        const email = document.getElementById('email').value;
+        const password = document.getElementById('password').value;
+
+        try {
+            const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+
+            await setDoc(doc(db, 'users', userCredential.user.uid), {
+                email: email,
+                createdAt: new Date().toISOString()
+            });
+            
+            signInWithEmailAndPassword(auth, email, password)
+                .then(() => {
+                    dialog.close();
+                })
+                .catch((error) => {
+                    console.error('Ошибка входа после регистрации:', error);
+                });
+        } catch (error) {
+            regError.textContent = getErrorMessage(error.code);
+            console.error('Ошибка при регистрации:', error.code, error.message);
+        }
+    });
+
+    outBtn.addEventListener('click', () => {
+        signOut(auth)
+            .catch((error) => {
+                console.error('Ошибка при выходе:', error);
+            });
+    });
+
+    onAuthStateChanged(auth, async (user) => {
+        if (user) {
+            profile.style.display = 'flex';
+            modal.style.display = 'none';
+            timesBtn.style.display = 'block';
+
+            document.getElementById('user-email').textContent = user.email;
+
+            const result = await loadTestResult(user.uid);
+            displayTestResult(result);
+        } else {
+            profile.style.display = 'none';
+            modal.style.display = 'flex';
+            timesBtn.style.display = 'none';
+            document.getElementById('user-email').textContent = '';
+        }
+    });
+
+    function getErrorMessage(errorCode) {
+        const messages = {
+            'auth/email-already-in-use': 'Эта почта уже зарегистрирована',
+            'auth/invalid-email': 'Неверный формат email',
+            'auth/weak-password': 'Пароль должен содержать минимум 6 символов',
+            'auth/user-not-found': 'Пользователь не найден',
+            'auth/wrong-password': 'Неверный пароль',
+            'auth/too-many-requests': 'Слишком много попыток. Попробуйте позже'
+        };
+        return messages[errorCode] || 'Произошла ошибка';
+    }
+</script>
+</head>
+<body>
+    <header>
+        <div class="logo">FStudies</div>
+        <div class="button">
+            <button id="open-modal" type="button"><img src="./assets/profile-icon.png" alt=""></button>
+        </div>
+        <dialog id="dialog">
+            <button type="button" id="times">&times;</button>
+            <div id="modal" class="modal" style="display: flex;">
+                <form action="" id="reg" class="reg">
+                    <input type="email" id="email" name="email" class="email" placeholder="Email" required>
+                    <input type="password" id="password" name="password" class="password" placeholder="Пароль" required>
+                    <button type="submit" id="reg-btn">Регистрация</button>
+                </form>
+                <hr class="hr">
+                <form action="" id="sign" class="sign">
+                    <input type="email" id="sign-email" name="sign-email" class="sign-email" placeholder="Email" required>
+                    <input type="password" id="sign-password" name="sign-password" class="sign-password" placeholder="Пароль" required>
+                    <button type="submit" id="sign-btn">Войти</button>
+                </form>
+            </div>
+            <div id="profile" style="display: none;">
+                <p><img src="assets/profile-icon2.jpg" alt=""><p>
+                <p>Добро пожаловать!</p>
+                <p id="user-email"></p>
+                <div id="test-results" class="test-results"></div>
+                <button type="button" id="outBtn">Выйти</button>
+            </div>
+        </dialog>
+    </header>
+
+    <main>
+        <button id="open-html-test" type="button" class="test-button">HTML - Основы основ</button>
+    </main>
+
+    <dialog id="html-test-dialog">
+        <button type="button" id="close-html-test">&times;</button>
+        <div class="test-container">
+            <h2>Теория и тест по HTML</h2>
+            
+            <div class="theory-section">
+                <h3>Основы HTML</h3>
+                <p>HTML (HyperText Markup Language) - это язык разметки для создания веб-страниц.</p>
+                <p>Основные элементы HTML:</p>
+                <ul>
+                    <li><code>&lt;html&gt;</code> - корневой элемент</li>
+                    <li><code>&lt;head&gt;</code> - содержит метаинформацию</li>
+                    <li><code>&lt;body&gt;</code> - содержит содержимое страницы</li>
+                    <li><code>&lt;h1&gt;-&lt;h6&gt;</code> - заголовки</li>
+                    <li><code>&lt;p&gt;</code> - параграф</li>
+                    <li><code>&lt;a&gt;</code> - ссылка</li>
+                    <li><code>&lt;img&gt;</code> - изображение</li>
+                </ul>
+            </div>
+            
+            <form id="html-test-form">
+                <div class="question">
+                    <div class="question-text">1. Какой тег используется для создания заголовка первого уровня?</div>
+                    <div class="options">
+                        <label class="option">
+                            <input type="radio" name="q1" value="a"> &lt;head&gt;
+                        </label>
+                        <label class="option">
+                            <input type="radio" name="q1" value="b"> &lt;h1&gt;
+                        </label>
+                        <label class="option">
+                            <input type="radio" name="q1" value="c"> &lt;header&gt;
+                        </label>
+                        <label class="option">
+                            <input type="radio" name="q1" value="d"> &lt;title&gt;
+                        </label>
+                    </div>
+                </div>
+                
+                <div class="question">
+                    <div class="question-text">2. Какой атрибут используется для указания URL в теге &lt;a&gt;?</div>
+                    <div class="options">
+                        <label class="option">
+                            <input type="radio" name="q2" value="a"> src
+                        </label>
+                        <label class="option">
+                            <input type="radio" name="q2" value="b"> link
+                        </label>
+                        <label class="option">
+                            <input type="radio" name="q2" value="c"> href
+                        </label>
+                        <label class="option">
+                            <input type="radio" name="q2" value="d"> url
+                        </label>
+                    </div>
+                </div>
+                
+                <div class="question">
+                    <div class="question-text">3. Какой тег используется для вставки изображения?</div>
+                    <div class="options">
+                        <label class="option">
+                            <input type="radio" name="q3" value="a"> &lt;img&gt;
+                        </label>
+                        <label class="option">
+                            <input type="radio" name="q3" value="b"> &lt;image&gt;
+                        </label>
+                        <label class="option">
+                            <input type="radio" name="q3" value="c"> &lt;picture&gt;
+                        </label>
+                        <label class="option">
+                            <input type="radio" name="q3" value="d"> &lt;src&gt;
+                        </label>
+                    </div>
+                </div>
+                
+                <div class="question">
+                    <div class="question-text">4. Какой тег определяет важный текст (жирный)?</div>
+                    <div class="options">
+                        <label class="option">
+                            <input type="radio" name="q4" value="a"> &lt;light&gt;
+                        </label>
+                        <label class="option">
+                            <input type="radio" name="q4" value="b"> &lt;i&gt;
+                        </label>
+                        <label class="option">
+                            <input type="radio" name="q4" value="c"> &lt;strong&gt;
+                        </label>
+                        <label class="option">
+                            <input type="radio" name="q4" value="d"> &lt;mark&gt;
+                        </label>
+                    </div>
+                </div>
+                
+                <div class="question">
+                    <div class="question-text">5. Какой тег используется для создания ненумерованного списка?</div>
+                    <div class="options">
+                        <label class="option">
+                            <input type="radio" name="q5" value="a"> &lt;ol&gt;
+                        </label>
+                        <label class="option">
+                            <input type="radio" name="q5" value="b"> &lt;dl&gt;
+                        </label>
+                        <label class="option">
+                            <input type="radio" name="q5" value="c"> &lt;ul&gt;
+                        </label>
+                        <label class="option">
+                            <input type="radio" name="q5" value="d"> &lt;list&gt;
+                        </label>
+                    </div>
+                </div>
+                
+                <button type="submit" class="submit-btn">Проверить ответы</button>
+                <button type="button" id="retry-test" class="retry-btn">Пройти тест заново</button>
+            </form>
+            
+            <div class="result" id="test-result"></div>
+        </div>
+    </dialog>
+
+    <script src="./scripts.js"></script>
+    <script type="module" src="./auth.js"></script>
+</body>
+</html>
