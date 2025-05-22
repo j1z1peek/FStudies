@@ -78,6 +78,7 @@ main {
 }
 
 .test-button p img{
+    border-radius: 10px;
     height: auto;
     width: 9rem;
 }
