@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>FStudies</title>
-    <link rel="stylesheet" href="./css/style.css">
+    <link rel="stylesheet" href="./css/style.css?v=1.0.1">
     <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.7.1/firebase-app.js";
     import { getAuth, createUserWithEmailAndPassword, onAuthStateChanged, signOut, signInWithEmailAndPassword } from 'https://www.gstatic.com/firebasejs/11.7.1/firebase-auth.js';
@@ -323,7 +323,11 @@
     </header>
 
     <main>
-        <button id="open-html-test" type="button" class="test-button">HTML - Основы основ</button>
+        <button id="open-html-test" type="button" class="test-button">
+            <p><img src="assets/html.jpg" alt=""></p>
+            <h3>HTML</h3>
+            <p>Основы основ</p>
+        </button>
     </main>
 
     <dialog id="html-test-dialog">

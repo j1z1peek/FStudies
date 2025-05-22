@@ -54,7 +54,7 @@ main {
     padding: 15px;
     border: none;
     border-radius: 10px;
-    background-color: #007bff;
+    background: linear-gradient(#4a6fa5, rgb(105, 139, 231));
     color: white;
     text-align: left;
     display: flex;
@@ -78,6 +78,7 @@ main {
 }
 
 .test-button p img{
+    border-radius: 10px;
     height: auto;
     width: 9rem;
 }
@@ -132,13 +133,6 @@ dialog {
 #html-test-dialog {
     max-width: 800px;
     width: 90%;
-}
-
-#open-html-test{
-    background: linear-gradient(#4a6fa5, rgb(105, 139, 231));
-    position: relative;
-    width: auto;
-    height: 200px;
 }
 
 dialog::backdrop {
